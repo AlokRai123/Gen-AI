@@ -1,13 +1,11 @@
-import { parse } from 'dotenv';
 import 'dotenv/config';
 import { OpenAI } from 'openai';
 
 const client = new OpenAI();
 
-
-async function main(){
-
-    const SYSTEM_PROMPT = `
+async function main() {
+  // These api calls are stateless (Chain Of Thought)
+  const SYSTEM_PROMPT = `
     You are an AI assistant who works on START, THINK and OUTPUT format.
     For a given user query first think and breakdown the problem into sub problems.
     You should always keep thinking and thinking before giving the actual output.
@@ -51,61 +49,59 @@ async function main(){
     ASSISTANT: { "step": "OUTPUT", "content": "3 + 4 * 10 - 4 * 3 = 31" } 
   `;
 
-
-    const messages = [
-        {
-        role : "user",
-        content : "SYSTEM_PROMPT",
+  const messages = [
+    {
+      role: 'system',
+      content: SYSTEM_PROMPT,
     },
     {
-        role : "user",
-        content : "Write a code in JS to find a prime number as fast as possible",
+      role: 'user',
+      content: 'Write a code in JS to find a prime number as fast as possible',
     },
-];
+  ];
 
-    while(true){
-        const response =await client.chat.completions.create({
-        model : "gpt-4.1-mini",
-        messages : messages,
+  while (true) {
+    const response = await client.chat.completions.create({
+      model: 'gpt-4.1-mini',
+      messages: messages,
     });
 
-     const rawContent = response.choices[0].message.content;
-     const parsedContent = JSON.parse(rawContent);
+    const rawContent = response.choices[0].message.content;
+    const parsedContent = JSON.parse(rawContent);
 
+    messages.push({
+      role: 'assistant',
+      content: JSON.stringify(parsedContent),
+    });
 
-      messages.push({
-        role : 'assistant',
-        content : JSON.stringify(parsedContent),
-      })
+    if (parsedContent.step === 'START') {
+      console.log(`🔥`, parsedContent.content);
+      continue;
+    }
 
-      if(parsedContent.step === 'START'){
-        console.log(`🔥`, parsedContent.content);
-        continue;
-      }
+    if (parsedContent.step === 'THINK') {
+      console.log(`\t🧠`, parsedContent.content);
 
-      if(parsedContent.step === 'THINK'){
-        console.log(`\t🧠`, parsedContent.content);
-
-         // Todo: Send the messages as history to maybe gemini and ask for a review and append it to history
+      // Todo: Send the messages as history to maybe gemini and ask for a review and append it to history
       // LLM as a judge techniuqe
-
       messages.push({
-        role : 'developer',
-        content : JSON.stringify({
-            step : "EVALUATE",
-            content : "Nice, You are going on correct path",
+        role: 'developer',
+        content: JSON.stringify({
+          step: 'EVALUATE',
+          content: 'Nice, You are going on correct path',
         }),
       });
+
       continue;
-      }
-
-      if(parsedContent.step === 'OUTPUT'){
-        console.log(`🤖`, parsedContent.content);
-        break;
-      }
-
-     
     }
-    console.log("Done....");
+
+    if (parsedContent.step === 'OUTPUT') {
+      console.log(`🤖`, parsedContent.content);
+      break;
+    }
+  }
+
+  console.log('Done...');
 }
+
 main();
